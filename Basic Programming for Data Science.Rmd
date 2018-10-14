@@ -1,0 +1,171 @@
+---
+title: 'Programming For Data Science'
+author: "Achmad Gunar Saadi"
+date: "August 4, 2018"
+output:
+  html_document:
+    toc: TRUE
+    toc_depth: 3
+    toc_float:
+      collapsed: FALSE
+    highlight:  pygments
+    theme: spacelab
+    number_sections: TRUE
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+# Introduction {.tabset}
+## Objectives
+__Project: Reproducible Data Science__<br />
+
+Create R Markdown file to report your business recommendation based on your data.<br />
+This R Markdown combines :<br />
+ a. Markdown title, author name, date<br />
+ b. Add formatting styles and hierarchical structure in your markdown (such as add title using # head, subtitle using ##, add tabset, etc)<br />
+ c. Data explanation<br />
+ d. Read your data into R<br />
+ e. Step-by-step data transformation code with some explanatory text (contain 'chunk' and also the markdown)<br />
+ f. Exploratory text and business recommendation based on your own creativity
+
+## Data Explanation
+This is a dataset of retail that contain information about the transactions from 3^rd^ January 2014 until 30^th^ December 2017 and including 15 parameters :<br />
+- **Row ID** -- the number of row<br />
+- **Order ID** -- the ID of any transaction (order)<br />
+- **Order Date** -- the date of any transaction  done<br />
+- **Ship Date** -- the date of ordered item(s) shipped<br />
+- **Ship Mode** -- the choice of ship type (First Class, Same Day, Second Class, and Standard Class)<br />
+- **Customer ID** -- the ID of customer or orderer<br />
+- **Segment** -- the segment of ordered item (Consumer, Corporate, and Home Office)<br />
+- **Product ID** -- the ID of ordered item(s)<br />
+- **Category** -- the category of ordered item(Furniture, Office Supplies, and Technology)<br />
+- **Sub-Category** -- the sub-category of ordered item<br />
+- **Product Name** -- the name of products<br />
+- **Sales** -- the sales obtained (in USD)<br />
+- **Quantity** --- the number of ordered item<br />
+- **Discount** --- the rebate. discount for the ordered item(s)<br />
+- **Profit** --- the profit of the shop from the order<br />
+
+## Read and understand the Dataset
+This is how the data look like (I only display the first 10 data) and including the 15 parameters mentioned before.
+```{r}
+dataRetail <- read.csv("./retail.csv")
+head(dataRetail, 10)
+names(dataRetail)
+str(dataRetail)
+dim(dataRetail)
+```
+The dimension of data inform that the number of data is 9994 and each has 15 parameters.<br /><br />
+The display give information that there are three (3) types of format data in the parameters: integer (int), categorical (Factor), numeric (num). The _Row ID_ and _Quantity_ parameters belong in integer type. While _Sales_, _Discount_, and _Profit_ belong in numeric type. The rest parameters are factor type<br /><br />
+The format in _Order Date_ and _Ship Date_ need to be altered into Date type.<br /><br /> Whilst _Order ID_, _Customer ID_, _Product  ID_, and _Product Name_ changed into Character type (Year/Month/Day).
+```{r}
+dataRetail$Order.Date <- as.Date(dataRetail$Order.Date, "%m/%d/%y")
+dataRetail$Ship.Date <- as.Date(dataRetail$Ship.Date, "%m/%d/%y")
+dataRetail$Order.ID <- as.character(dataRetail$Order.ID)
+dataRetail$Customer.ID <- as.character(dataRetail$Customer.ID)
+dataRetail$Product.ID <- as.character(dataRetail$Product.ID)
+dataRetail$Product.Name <- as.character(dataRetail$Product.Name)
+str(dataRetail)
+```
+Below is the quick look of distribution or descriptive statistics character of the data each parameters.
+
+```{r}
+summary(dataRetail)
+```
+There are some interesting facts based on our descriptive statistics info:<br />
+1. Ship mode --> Standard Class is far more famous than the other ship mode by 5968.
+2. Category --> Office Supplies category is far more dominant than the other by 6026<br />
+3. Sub-category --> the top two most favorite sub-category are *Binders* (1523) and *Paper* (1370) which both of them categorized in Office Supplies Category<br />
+4.Sales --> there is such like outlier or something value that prominent looking the descriptive information where tthere is huge gap between mean (229.858) or 3rd quartile (209.94) and the max value (22638.48) <br />
+5. Profit --> There is huge gap between mean or 3th quartile and min and max value<br />
+6. The case in Sales parameter also likely happended in Quartile and Discount parameters<br />
+```{r, fig.width=10}
+par(mfrow=c(1,4), pty = "m")
+boxplot(dataRetail$Sales);title("Sales")
+boxplot(dataRetail$Quantity);title("Quantity")
+boxplot(dataRetail$Discount);title("Discount")
+boxplot(dataRetail$Profit);title("Profit")
+```
+
+# Exploring the Data
+
+
+## Which product segment makes up our high-value transaction (sales)?
+Generally, **Technology** make the high-value transaction by 836154 stand above Furniture (741999.8) and Office Supplies(719047).<br />
+And **Phone** standout as the highest value transaction by 330007.05 followed by **Chairs** (328449.1) which depicted by the heatmap as well (white color zone).
+```{r}
+rowSums(xtabs(Sales~ Sub.Category + Category, dataRetail))
+xtabs(Sales~ Sub.Category + Category, dataRetail)
+colSums(xtabs(Sales~ Sub.Category + Category, dataRetail))
+heatmap(xtabs(Sales~ Sub.Category + Category, dataRetail), Colv = NA, Rowv = NA, cexCol = 0.6,scale = "column")
+```
+
+## The most profitable by category, sub-category and shipment mode?
+The profit based on shipment mode itself is _not very  significant_ for each type.
+```{r}
+aggregate(Profit ~ Ship.Mode, dataRetail, mean)
+
+```
+
+Whereas **Copiers** significantly stands as the most profitable sub-category by 1233.198 using **First Class** shipment.<br />
+```{r}
+d2<-aggregate(Profit ~ Sub.Category+Ship.Mode, dataRetail, mean)
+d2[which.max(d2$Profit),]
+d2
+```
+Meanwhile, **Technology** far more profiteable than other categories either using _First Class, Same Day, Second Class, or Standard Class shipment_.
+```{r}
+aggregate(Profit ~ Category+Ship.Mode, dataRetail, mean)
+
+```
+## The average monthly Profit and the most favorite item each month
+### The average Profit by month and day
+From the plotting of profit, there are some outliers so that better used median function to describe the aggregate profit by month and day.<b />
+On August profit can be obtained the most than other months.
+Whereas the profit by day, either using median or mean function, showed that wednesday is surely the best day if it comes to profit.
+```{r}
+dataRetail$Month<-months(dataRetail$Order.Date)
+dataRetail$Day<-weekdays(dataRetail$Order.Date)
+plot(dataRetail$Profit)
+aggregate(Profit~ Month,dataRetail, median)
+aggregate(Profit~ Day,dataRetail, mean)
+aggregate(Profit~ Day,dataRetail, median)
+```
+
+### The most favorite item each month
+The list of favorite item per month dominated by **Technoloy** 9 out of 12 months and the rest is **Office Supplies** category.<br /> **Copiers**, **Phone**, and ***Binders** standout as the most favorite item by month by dominate 3 out of 12 months each. The second is **Accesories** by 2 out of 12 months.
+```{r}
+m1<-aggregate(Profit~Category+Sub.Category+Month,dataRetail[dataRetail$Month=="January",],sum)
+m2<-aggregate(Profit~Category+Sub.Category+Month,dataRetail[dataRetail$Month=="February",],sum)
+m3<-aggregate(Profit~Category+Sub.Category+Month,dataRetail[dataRetail$Month=="March",],sum)
+m4<-aggregate(Profit~Category+Sub.Category+Month,dataRetail[dataRetail$Month=="April",],sum)
+m5<-aggregate(Profit~Category+Sub.Category+Month,dataRetail[dataRetail$Month=="May",],sum)
+m6<-aggregate(Profit~Category+Sub.Category+Month,dataRetail[dataRetail$Month=="June",],sum)
+m7<-aggregate(Profit~Category+Sub.Category+Month,dataRetail[dataRetail$Month=="July",],sum)
+m8<-aggregate(Profit~Category+Sub.Category+Month,dataRetail[dataRetail$Month=="August",],sum)
+m9<-aggregate(Profit~Category+Sub.Category+Month,dataRetail[dataRetail$Month=="September",],sum)
+m10<-aggregate(Profit~Category+Sub.Category+Month,dataRetail[dataRetail$Month=="October",],sum)
+m11<-aggregate(Profit~Category+Sub.Category+Month,dataRetail[dataRetail$Month=="November",],sum)
+m12<-aggregate(Profit~Category+Sub.Category+Month,dataRetail[dataRetail$Month=="December",],sum)
+
+m1[which.max(m1$Profit),]
+m2[which.max(m2$Profit),]
+m3[which.max(m3$Profit),]
+m4[which.max(m4$Profit),]
+m5[which.max(m5$Profit),]
+m6[which.max(m6$Profit),]
+m7[which.max(m7$Profit),]
+m8[which.max(m8$Profit),]
+m9[which.max(m9$Profit),]
+m10[which.max(m10$Profit),]
+m11[which.max(m11$Profit),]  
+m12[which.max(m12$Profit),]
+```
+
+# Business Recommendation
+The data exploration shows that generally **Technology** category more dominant than other categories in profit context, either used any shipment modes.<br/>
+The dominance of technology category represented by **Phone** and **Copiers** sub-category that the two most profitable throughout years period.<br />
+If it comes to sales, **Technology** category and **Phone** sub-category also dominated.<br />
+<br />
+The dominance that showed by Technology and its sub-categories throuth most of the months indicated that the items related to technology are the most favorite and will be the favorite for near-future term at least. The business strategy has to accommodate this opportunity especially for the most profitable months like August and midweek (Wednesday).
